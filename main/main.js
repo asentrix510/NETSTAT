@@ -1,27 +1,41 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, screen } = require('electron');
 const path = require('path');
 
-// Step 2 – Create Electron Window
 let mainWindow;
 
 function createWindow() {
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width, height } = primaryDisplay.workAreaSize;
+  
+  // Provide some padding for shadows
+  const WINDOW_WIDTH_COLLAPSED = 20; 
+  const WINDOW_WIDTH_EXPANDED = 350;
+
   mainWindow = new BrowserWindow({
-    width: 350, // Initial small width, we will adjust this for the collapsed/expanded states later
-    height: 600,
+    width: WINDOW_WIDTH_COLLAPSED,
+    height: height,
+    x: width - WINDOW_WIDTH_COLLAPSED,
+    y: 0,
     frame: false,
+    transparent: true,
     alwaysOnTop: true,
     resizable: false,
+    skipTaskbar: true,
     webPreferences: {
       nodeIntegration: true,
-      contextIsolation: false // For simplicity in stage 1, or use preload script
+      contextIsolation: false
     }
   });
 
-  // Load the index.html of the app.
   mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
 
-  // Open the DevTools manually if needed.
-  // mainWindow.webContents.openDevTools();
+  ipcMain.on('toggle-sidebar', (event, isExpanded) => {
+    const targetWidth = isExpanded ? WINDOW_WIDTH_EXPANDED : WINDOW_WIDTH_COLLAPSED;
+    const targetX = width - targetWidth;
+    
+    // Smoothly set bounds, though Electron resize can be instant
+    mainWindow.setBounds({ x: targetX, y: 0, width: targetWidth, height: height });
+  });
 }
 
 app.whenReady().then(() => {
