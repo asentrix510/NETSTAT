@@ -8,11 +8,10 @@ function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width, height } = primaryDisplay.workAreaSize;
   
-  // Shrunken transparent boundary to prevent stealing clicks
-  const WINDOW_HEIGHT_COLLAPSED = 120;
-  const WINDOW_HEIGHT_EXPANDED = 370;
-  const WINDOW_WIDTH_COLLAPSED = 16; 
-  const WINDOW_WIDTH_EXPANDED = 335; 
+  const WINDOW_HEIGHT_COLLAPSED = 90;
+  const WINDOW_HEIGHT_EXPANDED = 360;
+  const WINDOW_WIDTH_COLLAPSED = 20; 
+  const WINDOW_WIDTH_EXPANDED = 340; 
 
   const yCollapsed = Math.round((height - WINDOW_HEIGHT_COLLAPSED) / 2);
 
@@ -34,14 +33,39 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
 
-  ipcMain.on('toggle-sidebar', (event, isExpanded) => {
+  mainWindow.on('blur', () => {
+    mainWindow.webContents.send('force-close-sidebar');
+  });
+
+  ipcMain.handle('toggle-sidebar', (event, isExpanded) => {
+    let bounds = mainWindow.getBounds();
+    const currentDisplay = screen.getDisplayNearestPoint({ x: bounds.x, y: bounds.y });
+    
+    const isRightSide = (bounds.x + bounds.width / 2) > (currentDisplay.bounds.x + currentDisplay.bounds.width / 2);
+    const dockSide = isRightSide ? 'right' : 'left';
+
     const targetW = isExpanded ? WINDOW_WIDTH_EXPANDED : WINDOW_WIDTH_COLLAPSED;
     const targetH = isExpanded ? WINDOW_HEIGHT_EXPANDED : WINDOW_HEIGHT_COLLAPSED;
-    const targetX = width - targetW;
-    const targetY = Math.round((height - targetH) / 2);
     
-    // Resize the transparent bounding box exactly to the UI bounds so we never clip the desktop!
+    let targetX = bounds.x;
+    let targetY = bounds.y;
+    
+    if (isExpanded) {
+        if (isRightSide) targetX = bounds.x - (WINDOW_WIDTH_EXPANDED - WINDOW_WIDTH_COLLAPSED);
+        targetY = bounds.y - (WINDOW_HEIGHT_EXPANDED - WINDOW_HEIGHT_COLLAPSED) / 2;
+    } else {
+        if (isRightSide) targetX = bounds.x + (WINDOW_WIDTH_EXPANDED - WINDOW_WIDTH_COLLAPSED);
+        targetY = bounds.y + (WINDOW_HEIGHT_EXPANDED - WINDOW_HEIGHT_COLLAPSED) / 2;
+    }
+
+    const maxY = currentDisplay.bounds.y + currentDisplay.bounds.height - targetH;
+    const minY = currentDisplay.bounds.y;
+    if (targetY > maxY) targetY = maxY;
+    if (targetY < minY) targetY = minY;
+
     mainWindow.setBounds({ x: targetX, y: targetY, width: targetW, height: targetH });
+    
+    return dockSide;
   });
 }
 

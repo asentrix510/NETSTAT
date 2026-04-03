@@ -23,17 +23,28 @@ module.exports = {
         const ping = await si.inetLatency('8.8.8.8');
         
         const networkInterfaces = await si.networkInterfaces();
+        const wifiConnections = await si.wifiConnections();
+        
         let serviceType = 'UNKNOWN';
         let status = 'OFFLINE';
+        let networkName = 'Unknown Network';
         
         for (let iface of networkInterfaces) {
           if (iface.operstate === 'up' && !iface.virtual) {
              if (iface.type === 'wireless') serviceType = 'WIFI';
              else if (iface.type === 'wired') serviceType = 'ETHERNET';
              else serviceType = iface.type ? iface.type.toUpperCase() : 'ETHERNET';
+             
              status = 'CONNECTED';
+             networkName = iface.iface;
              break;
           }
+        }
+
+        if (serviceType === 'WIFI' && wifiConnections && wifiConnections.length > 0) {
+            networkName = wifiConnections[0].ssid || networkName;
+        } else if (serviceType === 'ETHERNET') {
+            networkName = 'Ethernet Connection';
         }
 
         const upSec = os.uptime();
@@ -42,11 +53,12 @@ module.exports = {
         const s = Math.floor(upSec % 60).toString().padStart(2, '0');
 
         const data = {
-          download: mbpsDownload.toFixed(1),
-          upload: mbpsUpload.toFixed(1),
+          download: mbpsDownload,
+          upload: mbpsUpload,
           ping: ping >= 0 ? Math.round(ping) : 0,
           type: serviceType,
           status: status,
+          networkName: networkName || 'Connected',
           uptime: `${h}:${m}:${s}`
         };
 
@@ -59,6 +71,6 @@ module.exports = {
     };
 
     setInterval(fetchNetworkStats, 1000);
-    fetchNetworkStats(); // Initial call
+    fetchNetworkStats();
   }
 };

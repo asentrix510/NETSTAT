@@ -4,38 +4,39 @@ const { Chart } = require('chart.js/auto');
 const handle = document.getElementById('sidebar-handle');
 const dashboard = document.getElementById('dashboard');
 const closeBtn = document.getElementById('close-btn');
+const toggleUnitBtn = document.getElementById('unit-toggle-btn');
+const appContainer = document.getElementById('app-container');
 
 let isExpanded = false;
+let isMegaBytes = false;
 
-// Initialize chart
+const dlDataHistory = Array(60).fill(0);
+const ulDataHistory = Array(60).fill(0);
+
 const ctx = document.getElementById('speed-chart').getContext('2d');
-const MAX_DATA_POINTS = 60; 
-
-// Chart defaults for aesthetic blending
-const cGrid = '#ffffff0a';
 
 const speedChart = new Chart(ctx, {
     type: 'line',
     data: {
-        labels: Array(MAX_DATA_POINTS).fill(''),
+        labels: Array(60).fill(''),
         datasets: [
             {
                 label: 'DWN',
-                data: Array(MAX_DATA_POINTS).fill(0),
-                borderColor: '#00f0ff', 
-                backgroundColor: 'rgba(0, 240, 255, 0.1)',
-                borderWidth: 2.5,
+                data: dlDataHistory,
+                borderColor: '#60a5fa', 
+                backgroundColor: 'rgba(96, 165, 250, 0.1)',
+                borderWidth: 1.5,
                 tension: 0.3,
                 pointRadius: 0,
                 fill: true
             },
             {
                 label: 'UPL',
-                data: Array(MAX_DATA_POINTS).fill(0),
-                borderColor: '#ff003c', 
-                backgroundColor: 'rgba(255, 0, 60, 0.15)',
-                borderWidth: 2,
-                tension: 0.4,
+                data: ulDataHistory,
+                borderColor: '#c084fc', 
+                backgroundColor: 'rgba(192, 132, 252, 0.1)',
+                borderWidth: 1.5,
+                tension: 0.3,
                 pointRadius: 0,
                 fill: true
             }
@@ -46,65 +47,91 @@ const speedChart = new Chart(ctx, {
         maintainAspectRatio: false,
         animation: false,
         scales: {
-            x: { 
-                display: false 
-            },
+            x: { display: false },
             y: { 
                 display: true, 
                 position: 'right',
-                grid: { color: cGrid, drawBorder: false },
-                ticks: { color: '#ffffff30', font: { size: 9, family: 'Inter' }, maxTicksLimit: 4 },
+                grid: { color: '#ffffff0a', drawBorder: false },
+                ticks: { color: '#ffffff50', font: { size: 9, family: 'Inter' }, maxTicksLimit: 4 },
                 border: { display: false },
-                beginAtZero: true, 
-                suggestedMax: 50 // auto scales up smoothly
+                beginAtZero: true
             }
         },
         plugins: {
             legend: { display: false },
             tooltip: { enabled: false }
         },
-        layout: { padding: { left: 0, right: 0, top: 20, bottom: 0 } }
+        layout: { padding: { left: -10, right: 0, top: 15, bottom: -5 } }
     }
 });
 
-function toggleSidebar() {
+async function toggleSidebar() {
   isExpanded = !isExpanded;
   
+  const dockSide = await ipcRenderer.invoke('toggle-sidebar', isExpanded);
+  
+  if (dockSide === 'left') {
+      appContainer.style.flexDirection = 'row-reverse';
+  } else {
+      appContainer.style.flexDirection = 'row';
+  }
+
   if (isExpanded) {
     dashboard.classList.remove('hidden');
     dashboard.classList.add('flex');
-    ipcRenderer.send('toggle-sidebar', true);
   } else {
     dashboard.classList.add('hidden');
     dashboard.classList.remove('flex');
-    ipcRenderer.send('toggle-sidebar', false);
   }
 }
 
+// Intercept mere clicks vs drags natively
+// Since -webkit-app-region: drag is on the handle, raw clicks are still registered.
 handle.addEventListener('click', toggleSidebar);
 
 closeBtn.addEventListener('click', () => {
     window.close(); 
 });
 
+ipcRenderer.on('force-close-sidebar', () => {
+    if (isExpanded) toggleSidebar();
+});
+
+toggleUnitBtn.addEventListener('click', (e) => {
+    isMegaBytes = !isMegaBytes;
+    e.target.innerText = isMegaBytes ? 'MB/s' : 'Mb/s';
+    
+    document.querySelectorAll('.unit-label').forEach(el => {
+        el.innerText = isMegaBytes ? 'MB/s' : 'Mb/s';
+    });
+    
+    const factor = isMegaBytes ? 8 : 1;
+    speedChart.data.datasets[0].data = dlDataHistory.map(v => v / factor);
+    speedChart.data.datasets[1].data = ulDataHistory.map(v => v / factor);
+    speedChart.update();
+});
+
 ipcRenderer.on('network-data', (event, data) => {
-    // Re-mapped directly to the new cleanly structured DOM identifiers
-    document.getElementById('dl-text').innerText = data.download;
-    document.getElementById('ul-text').innerText = data.upload;
-    document.getElementById('ping-text').innerHTML = `${data.ping}<span class="text-[9px] font-normal opacity-50 ml-0.5">ms</span>`;
-    document.getElementById('net-type').innerText = data.type;
-    document.getElementById('net-status').innerText = 'STATUS: ' + data.status;
+    const rawDl = parseFloat(data.download);
+    const rawUl = parseFloat(data.upload);
+
+    document.getElementById('network-name').innerText = data.networkName;
+    
+    const factor = isMegaBytes ? 8 : 1;
+    document.getElementById('dl-text').innerText = (rawDl / factor).toFixed(1);
+    document.getElementById('ul-text').innerText = (rawUl / factor).toFixed(1);
+    
+    document.getElementById('ping-text').innerText = `${data.ping} ms`;
     document.getElementById('uptime').innerText = data.uptime;
 
-    // Inject graph speeds
-    const dlSpeed = parseFloat(data.download);
-    const ulSpeed = parseFloat(data.upload);
+    dlDataHistory.push(rawDl);
+    dlDataHistory.shift();
     
-    speedChart.data.datasets[0].data.push(dlSpeed);
-    speedChart.data.datasets[0].data.shift();
+    ulDataHistory.push(rawUl);
+    ulDataHistory.shift();
     
-    speedChart.data.datasets[1].data.push(ulSpeed);
-    speedChart.data.datasets[1].data.shift();
+    speedChart.data.datasets[0].data = dlDataHistory.map(v => v / factor);
+    speedChart.data.datasets[1].data = ulDataHistory.map(v => v / factor);
     
     speedChart.update();
 });
