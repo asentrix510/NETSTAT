@@ -1,4 +1,5 @@
 const si = require('systeminformation');
+const os = require('os');
 
 module.exports = {
   startMonitoring: (mainWindow) => {
@@ -35,12 +36,18 @@ module.exports = {
           }
         }
 
+        const upSec = os.uptime();
+        const h = Math.floor(upSec / 3600).toString().padStart(2, '0');
+        const m = Math.floor((upSec % 3600) / 60).toString().padStart(2, '0');
+        const s = Math.floor(upSec % 60).toString().padStart(2, '0');
+
         const data = {
           download: mbpsDownload.toFixed(1),
           upload: mbpsUpload.toFixed(1),
           ping: ping >= 0 ? Math.round(ping) : 0,
           type: serviceType,
-          status: status
+          status: status,
+          uptime: `${h}:${m}:${s}`
         };
 
         if (mainWindow && !mainWindow.isDestroyed()) {
