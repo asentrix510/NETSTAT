@@ -1,0 +1,8 @@
+/* styles.css */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: sans-serif;
+  overflow: hidden; /* frameless usually wants hidden ovf */
+  background: transparent;
+}
