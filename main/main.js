@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, screen } = require('electron');
 const path = require('path');
+const networkMonitor = require('./networkMonitor');
 
 let mainWindow;
 
@@ -40,6 +41,7 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow();
+  networkMonitor.startMonitoring(mainWindow);
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
