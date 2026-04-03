@@ -5,7 +5,6 @@ const handle = document.getElementById('sidebar-handle');
 const dashboard = document.getElementById('dashboard');
 const closeBtn = document.getElementById('close-btn');
 const toggleUnitBtn = document.getElementById('unit-toggle-btn');
-const appContainer = document.getElementById('app-container');
 
 let isExpanded = false;
 let isMegaBytes = false;
@@ -65,36 +64,31 @@ const speedChart = new Chart(ctx, {
     }
 });
 
-async function toggleSidebar() {
+function toggleSidebar() {
   isExpanded = !isExpanded;
   
-  const dockSide = await ipcRenderer.invoke('toggle-sidebar', isExpanded);
-  
-  if (dockSide === 'left') {
-      appContainer.style.flexDirection = 'row-reverse';
-  } else {
-      appContainer.style.flexDirection = 'row';
-  }
-
   if (isExpanded) {
     dashboard.classList.remove('hidden');
     dashboard.classList.add('flex');
+    ipcRenderer.send('toggle-sidebar', true);
   } else {
     dashboard.classList.add('hidden');
     dashboard.classList.remove('flex');
+    ipcRenderer.send('toggle-sidebar', false);
   }
 }
 
-// Intercept mere clicks vs drags natively
-// Since -webkit-app-region: drag is on the handle, raw clicks are still registered.
 handle.addEventListener('click', toggleSidebar);
 
 closeBtn.addEventListener('click', () => {
     window.close(); 
 });
 
+// Auto-collapse when user clicks somewhere else on desktop (Window Blur)
 ipcRenderer.on('force-close-sidebar', () => {
-    if (isExpanded) toggleSidebar();
+    if (isExpanded) {
+        toggleSidebar();
+    }
 });
 
 toggleUnitBtn.addEventListener('click', (e) => {
