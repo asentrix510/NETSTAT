@@ -8,15 +8,19 @@ function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width, height } = primaryDisplay.workAreaSize;
   
-  // Provide some padding for shadows
-  const WINDOW_WIDTH_COLLAPSED = 20; 
-  const WINDOW_WIDTH_EXPANDED = 350;
+  // Shrunken transparent boundary to prevent stealing clicks
+  const WINDOW_HEIGHT_COLLAPSED = 120;
+  const WINDOW_HEIGHT_EXPANDED = 370;
+  const WINDOW_WIDTH_COLLAPSED = 16; 
+  const WINDOW_WIDTH_EXPANDED = 335; 
+
+  const yCollapsed = Math.round((height - WINDOW_HEIGHT_COLLAPSED) / 2);
 
   mainWindow = new BrowserWindow({
     width: WINDOW_WIDTH_COLLAPSED,
-    height: height,
+    height: WINDOW_HEIGHT_COLLAPSED,
     x: width - WINDOW_WIDTH_COLLAPSED,
-    y: 0,
+    y: yCollapsed,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -31,11 +35,13 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
 
   ipcMain.on('toggle-sidebar', (event, isExpanded) => {
-    const targetWidth = isExpanded ? WINDOW_WIDTH_EXPANDED : WINDOW_WIDTH_COLLAPSED;
-    const targetX = width - targetWidth;
+    const targetW = isExpanded ? WINDOW_WIDTH_EXPANDED : WINDOW_WIDTH_COLLAPSED;
+    const targetH = isExpanded ? WINDOW_HEIGHT_EXPANDED : WINDOW_HEIGHT_COLLAPSED;
+    const targetX = width - targetW;
+    const targetY = Math.round((height - targetH) / 2);
     
-    // Smoothly set bounds, though Electron resize can be instant
-    mainWindow.setBounds({ x: targetX, y: 0, width: targetWidth, height: height });
+    // Resize the transparent bounding box exactly to the UI bounds so we never clip the desktop!
+    mainWindow.setBounds({ x: targetX, y: targetY, width: targetW, height: targetH });
   });
 }
 

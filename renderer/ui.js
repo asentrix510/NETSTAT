@@ -9,28 +9,32 @@ let isExpanded = false;
 
 // Initialize chart
 const ctx = document.getElementById('speed-chart').getContext('2d');
-const MAX_DATA_POINTS = 60; // 60 seconds
+const MAX_DATA_POINTS = 60; 
+
+// Chart defaults for aesthetic blending
+const cGrid = '#ffffff0a';
+
 const speedChart = new Chart(ctx, {
     type: 'line',
     data: {
         labels: Array(MAX_DATA_POINTS).fill(''),
         datasets: [
             {
-                label: 'Download',
+                label: 'DWN',
                 data: Array(MAX_DATA_POINTS).fill(0),
-                borderColor: '#00daf3', 
-                backgroundColor: 'rgba(0, 218, 243, 0.1)',
-                borderWidth: 1.5,
-                tension: 0.4,
+                borderColor: '#00f0ff', 
+                backgroundColor: 'rgba(0, 240, 255, 0.1)',
+                borderWidth: 2.5,
+                tension: 0.3,
                 pointRadius: 0,
                 fill: true
             },
             {
-                label: 'Upload',
+                label: 'UPL',
                 data: Array(MAX_DATA_POINTS).fill(0),
-                borderColor: '#ffcf8f', 
-                backgroundColor: 'rgba(255, 207, 143, 0.1)',
-                borderWidth: 1,
+                borderColor: '#ff003c', 
+                backgroundColor: 'rgba(255, 0, 60, 0.15)',
+                borderWidth: 2,
                 tension: 0.4,
                 pointRadius: 0,
                 fill: true
@@ -42,14 +46,24 @@ const speedChart = new Chart(ctx, {
         maintainAspectRatio: false,
         animation: false,
         scales: {
-            x: { display: false },
-            y: { display: false, beginAtZero: true, suggestedMax: 100 }
+            x: { 
+                display: false 
+            },
+            y: { 
+                display: true, 
+                position: 'right',
+                grid: { color: cGrid, drawBorder: false },
+                ticks: { color: '#ffffff30', font: { size: 9, family: 'Inter' }, maxTicksLimit: 4 },
+                border: { display: false },
+                beginAtZero: true, 
+                suggestedMax: 50 // auto scales up smoothly
+            }
         },
         plugins: {
             legend: { display: false },
             tooltip: { enabled: false }
         },
-        layout: { padding: 0 }
+        layout: { padding: { left: 0, right: 0, top: 20, bottom: 0 } }
     }
 });
 
@@ -58,40 +72,31 @@ function toggleSidebar() {
   
   if (isExpanded) {
     dashboard.classList.remove('hidden');
-    // Fast IPC call to resize window so the panel becomes viewable immediately
+    dashboard.classList.add('flex');
     ipcRenderer.send('toggle-sidebar', true);
   } else {
     dashboard.classList.add('hidden');
+    dashboard.classList.remove('flex');
     ipcRenderer.send('toggle-sidebar', false);
   }
 }
 
 handle.addEventListener('click', toggleSidebar);
 
-// Close button in header
 closeBtn.addEventListener('click', () => {
-    if(confirm("Exit Precision Monitor?")) {
-        window.close(); 
-    }
+    window.close(); 
 });
 
-// Update Network Stats Real-Time
 ipcRenderer.on('network-data', (event, data) => {
+    // Re-mapped directly to the new cleanly structured DOM identifiers
     document.getElementById('dl-text').innerText = data.download;
     document.getElementById('ul-text').innerText = data.upload;
-    document.getElementById('ping-text').innerHTML = `${data.ping}<span class="text-[10px] ml-1 text-outline">ms</span>`;
+    document.getElementById('ping-text').innerHTML = `${data.ping}<span class="text-[9px] font-normal opacity-50 ml-0.5">ms</span>`;
     document.getElementById('net-type').innerText = data.type;
-    document.getElementById('net-status').innerText = data.status;
+    document.getElementById('net-status').innerText = 'STATUS: ' + data.status;
+    document.getElementById('uptime').innerText = data.uptime;
 
-    // Animate Needle based on speed 
-    // dl: ~1000 mbps bounds, ul: ~100 mbps bounds
-    const dlRot = -75 + Math.min(150, (data.download / 1000) * 150);
-    document.getElementById('dl-needle').style.transform = `rotate(${dlRot}deg)`;
-    
-    const ulRot = -45 + Math.min(90, (data.upload / 100) * 90);
-    document.getElementById('ul-needle').style.transform = `rotate(${ulRot}deg)`;
-
-    // Update Oscilloscope Graph
+    // Inject graph speeds
     const dlSpeed = parseFloat(data.download);
     const ulSpeed = parseFloat(data.upload);
     
@@ -102,7 +107,4 @@ ipcRenderer.on('network-data', (event, data) => {
     speedChart.data.datasets[1].data.shift();
     
     speedChart.update();
-
-    // Update Uptime
-    document.getElementById('uptime').innerText = data.uptime;
 });
