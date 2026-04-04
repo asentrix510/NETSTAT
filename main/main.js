@@ -51,6 +51,12 @@ app.whenReady().then(() => {
   createWindow();
   networkMonitor.startMonitoring(mainWindow);
 
+  // Configure app to launch on startup
+  app.setLoginItemSettings({
+    openAtLogin: true,
+    path: app.getPath('exe'),
+  });
+
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
